@@ -1,8 +1,8 @@
 #include "Player.h"
-#include "DeckComponent.h"
-#include "HandComponent.h"
-#include "BoardComponent.h"
-#include "GraveyardComponent.h"
+#include "Deck.h"
+#include "Hand.h"
+#include "Board.h"
+#include "Component.h"
 
 Player::Player(const std::string& deckFile)
   : name(deckFile),
@@ -10,10 +10,10 @@ Player::Player(const std::string& deckFile)
     magic(3)
 {
     // Create and wire components
-    deck = std::make_unique<DeckComponent>(deckFile);
-    hand = std::make_unique<HandComponent>();
-    board = std::make_unique<BoardComponent>();
-    graveyard = std::make_unique<GraveyardComponent>();
+    deck = std::make_unique<Deck>(deckFile);
+    hand = std::make_unique<Hand>();
+    board = std::make_unique<Board>();
+    graveyard = std::make_unique<Graveyard>();
 
     // Player observes deck (to receive Draw notifications)
     deck->attach(this);
