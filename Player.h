@@ -1,5 +1,6 @@
 #ifndef PLAYER_H
 #define PLAYER_H
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -8,34 +9,36 @@
 #include "Observer.h"
 #include "State.h"
 #include "Component.h"
-class Player : public Subject, Observer {
-    friend class Card;
-    std::string name;
-    std::unique_ptr<Component> hand;
-    std::unique_ptr<Component> deck;
-    std::unique_ptr<Component> board;
-    std::unique_ptr<Component> graveyard;
-    int health = 20;
-    int magic;
-    // dont need observer list since it owns what it would notify
 
-    Player(std::string filename = "default.deck");
-    ~Player();
-
+class Player : public Subject, public Observer {
 public:
+    Player(const std::string& name, const std::string& deckFile);
+    ~Player() override = default;
+
+    // Core actions
     void draw();
-    void discard();
-    int getHealth();
-    void setHealth(int h);
-    int getMagic();
-    void setMagic(int m);
-    void notifyObserver(State state) override; // check if the order is legal (enough magic? action point?)
-    void notify(State state) override; // for passing down manual active actions, not passive actions like draw cards at the start of the turn.
-    void startOfTurnAction(); // gain magic, draw card, start of turn 
-    void EndOfTurnAction();
-    int getCardCost(State state);
-    int getMinionAction(State state);
+    void play(int handIndex);
+    void attack(int boardIndex, Player& opponent);
+    void startOfTurn();
+    void endOfTurn();
+
+    // Showers for debugging
+    void showHand() const;
+    void showBoard() const;
+
+    // Observer
+    void notifyObserver(State state);
+    void notify(State state) override;
+
+    // Accessors
+    const std::string& getName() const;
+    int getHealth() const;
+    int getMagic() const;
+
+private:
+    std::string name_;
+    std::unique_ptr<Component> deck_, hand_, board_, graveyard_;
+    int health_{20}, magic_{3};
 };
 
-
-#endif
+#endif // PLAYER_H

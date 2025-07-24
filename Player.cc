@@ -1,81 +1,69 @@
+// ===== Player.cpp =====
 #include "Player.h"
-#include "Deck.h"
-#include "Hand.h"
-#include "Board.h"
-#include "Component.h"
+#include <iostream>
+#include <algorithm>
 
-Player::Player(const std::string& deckFile)
-  : name(deckFile),
-    health(20),
-    magic(3)
+Player::Player(const std::string& name, const std::string& deckFile)
+  : name_(name),
+    deck_(std::make_unique<DeckComponent>(deckFile)),
+    hand_(std::make_unique<HandComponent>()),
+    board_(std::make_unique<BoardComponent>()),
+    graveyard_(std::make_unique<GraveyardComponent>())
 {
-    // Create and wire components
-    deck = std::make_unique<Deck>(deckFile);
-    hand = std::make_unique<Hand>();
-    board = std::make_unique<Board>();
-    graveyard = std::make_unique<Graveyard>();
-
-    // Player observes deck (to receive Draw notifications)
-    deck->attach(this);
-
-    // Player notifies hand/board/graveyard when actions occur
-    attach(hand.get());
-    attach(board.get());
-    attach(graveyard.get());
+    // Wire up Observer/Subject
+    deck_->attach(this);
+    attach(hand_.get());
+    attach(board_.get());
+    attach(graveyard_.get());
 }
-
-Player::~Player() = default;
 
 void Player::draw() {
-    // Request deck to draw; deck will notify(State::DrawCard)
-    deck->draw();
+    auto card = dynamic_cast<DeckComponent*>(deck_.get())->draw();
+    if (card) hand_->addCard(std::move(card));
 }
 
-void Player::discard(int handIndex) {
-    // Move from hand to graveyard
-    auto card = dynamic_cast<HandComponent*>(hand.get())->removeCard(handIndex);
-    graveyard->onNotify(State::DiscardCard, card);
+void Player::play(int handIndex) {
+    auto card = hand_->removeCard(handIndex);
+    if (!card) return;
+    board_->addCard(std::move(card));
 }
 
-void Player::startOfTurnAction() {
-    magic = 3;              // reset magic
-    draw();                 // draw 1 card
+void Player::attack(int boardIndex, Player& opponent) {
+    auto card = board_->removeCard(boardIndex);
+    if (!card) return;
+    opponent.health_ -= card->cost;
+    if (opponent.health_ < 0) opponent.health_ = 0;
+    graveyard_->addCard(std::move(card));
+}
+
+void Player::startOfTurn() {
+    magic_ = 3;
+    draw();
     notifyObserver(State::StartOfTurn);
 }
 
-void Player::EndOfTurnAction() {
+void Player::endOfTurn() {
     notifyObserver(State::EndOfTurn);
 }
 
+void Player::showHand() const {
+    hand_->show();
+}
+
+void Player::showBoard() const {
+    board_->show();
+}
+
 void Player::notifyObserver(State state) {
-    // Broadcast state to components
     Subject::notify(state);
 }
 
 void Player::notify(State state) {
-    // Handle notifications from components
-    switch (state) {
-        case State::DrawCard: {
-            // deck component told us to draw: get top card and add to hand
-            auto card = dynamic_cast<DeckComponent*>(deck.get())->takeTopCard();
-            dynamic_cast<HandComponent*>(hand.get())->addCard(card);
-            break;
-        }
-        default:
-            break;
+    if (state == State::DrawCard) {
+        // no extra logic
     }
 }
 
-int Player::getHealth() const { return health; }
-void Player::setHealth(int h) { health = h; }
-int Player::getMagic() const { return magic; }
-void Player::setMagic(int m) { magic = m; }
-const std::string& Player::getName() const { return name; }
-
-int Player::getCardCost(int handIndex) const {
-    return dynamic_cast<HandComponent*>(hand.get())->getCardCost(handIndex);
-}
-
-int Player::getMinionAction(int boardIndex) const {
-    return dynamic_cast<BoardComponent*>(board.get())->getMinionAction(boardIndex);
-}
+const std::string& Player::getName() const { return name_; }
+int Player::getHealth() const { return health_; }
+int Player::getMagic()  const { return magic_; }
