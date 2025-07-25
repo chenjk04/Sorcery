@@ -13,7 +13,7 @@
 class Player : public Subject, public Observer {
 public:
     Player(const std::string& name, const std::string& deckFile);
-    ~Player() override = default;
+    ~Player() = default;
 
     // Core actions
     void draw();
@@ -34,6 +34,7 @@ public:
     const std::string& getName() const;
     int getHealth() const;
     int getMagic() const;
+    void setHealth(int );
 
 private:
     std::string name_;

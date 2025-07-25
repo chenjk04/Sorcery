@@ -28,6 +28,10 @@ void Player::play(int handIndex) {
     board_->addCard(std::move(card));
 }
 
+void Player::setHealth(int h) {
+    health_ = h;
+}
+
 void Player::attack(int boardIndex, Player& opponent) {
     auto card = board_->removeCard(boardIndex);
     if (!card) return;
