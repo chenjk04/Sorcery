@@ -10,9 +10,7 @@ void Game::notify(const std::string& order, int from, int to) {
 }
 
 void Game::run() {
-    // Initialize players
-    // Assuming P1 and P2 have been constructed elsewhere or here:
-    // shuffle decks
+
     dynamic_cast<DeckComponent*>(P1->getDeck())->shuffle();
     dynamic_cast<DeckComponent*>(P2->getDeck())->shuffle();
     
@@ -22,10 +20,7 @@ void Game::run() {
         P2->draw();
     }
     
-    // Set starting health and magic
-    // E.g., health default 20, magic default 3
-    
-    // Enter game loop
+
     P1Active = true;
     while (true) {
         Player* current = P1Active ? P1.get() : P2.get();
