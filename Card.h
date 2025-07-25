@@ -7,8 +7,8 @@
 #include <vector>
 #include "State.h"
 #include "Player.h"
-class Component;
- // forward declaration
+
+
 class Card {
 protected:
     std::string name;

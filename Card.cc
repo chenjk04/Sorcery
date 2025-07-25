@@ -1,7 +1,8 @@
-#include "Card.h"
-
 #include <algorithm>
 #include <memory>
+#include "Card.h"
+
+
 // i need setHealth() fn for Player class 
 // play: call card.execute if you need to play cards other than minion
 // also check cost
