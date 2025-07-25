@@ -30,6 +30,11 @@ public:
 
     void setOpponent(Player* p);
 
+    Player* getOpponent() const;
+    void destroyMinion(Target target); 
+    void moveMinionToGraveyard(int index); 
+
+
     // In Player.h (public section)
 int getId() const;
 const std::string& getName() const;
@@ -52,7 +57,7 @@ Minion* getMinion(int index) const; // 0-based index
     //void printBoard(const Player& p1, const Player& p2);
 
     void playCard(int handIndex, const State& state);
-    void attack(State state);
+    void attack(const State& state);
     void use(State state);
     void notify(State state);
 
@@ -63,6 +68,10 @@ Minion* getMinion(int index) const; // 0-based index
     //int getHealth() const;
     //int getMagic() const;
     //const std::string& getName() const;
+
+    void inspect(int i) const;
+void activateTrigger(const State& state);
+
 };
 
 

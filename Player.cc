@@ -14,6 +14,15 @@ void Player::setOpponent(Player* p) {
     opponent = p;
 }
 
+Player* Player::getOpponent() const {
+    return opponent;
+}
+
+int Player::getId() const {
+    return this == opponent->getOpponent() ? 1 : 2;
+}
+
+
 void Player::loadDeckFromFile(const std::string& filename) {
     std::ifstream in(filename);
     std::string cardName;
@@ -80,17 +89,87 @@ void Player::printHand() const {
     }
 }
 
+void Player::moveMinionToGraveyard(int index) {
+    if (index >= 0 && index < static_cast<int>(board.size())) {
+        graveyard.push_back(std::move(board[index]));
+        board.erase(board.begin() + index);
+    }
+}
+
+void Player::destroyMinion(Target target) {
+    int index = -1;
+    int playerId = -1;
+
+    if (target >= Target::P1B1 && target <= Target::P1B5) {
+        index = static_cast<int>(target) - static_cast<int>(Target::P1B1);
+        playerId = 1;
+    } else if (target >= Target::P2B1 && target <= Target::P2B5) {
+        index = static_cast<int>(target) - static_cast<int>(Target::P2B1);
+        playerId = 2;
+    }
+
+    if ((playerId == 1 && this->getId() == 1) || (playerId == 2 && this->getId() == 2)) {
+        moveMinionToGraveyard(index);
+    }
+}
+
+
 void Player::playCard(int handIndex, const State& state) {
     if (handIndex < 0 || handIndex >= static_cast<int>(hand.size())) return;
+
     auto card = std::move(hand[handIndex]);
     hand.erase(hand.begin() + handIndex);
 
-    if (card->getType() == "Ritual") {
-        ritual = std::move(card);  // <- Only store it, do not execute
-    } else if (card->getType() == "Minion") {
-        board.push_back(std::move(card));
-    } else {
-        card->execute(state, this, opponent);
+    std::string type = card->getType();
+
+    if (magic_ < card->getCost()) {
+    std::cerr << "Not enough magic to play " << card->getName() << "!\n";
+    return;
+}
+magic_ -= card->getCost();
+
+
+    if (type == "Ritual") {
+        ritual = std::move(card);
+    }
+    else if (type == "Minion") {
+        board.emplace_back(std::move(card));
+
+        // Trigger opponent ritual: a minion has entered play
+        State triggerState;
+        triggerState.action = Action::play;
+        triggerState.source = Source::H1; // or any valid
+        triggerState.target = (this == opponent->getOpponent()) ? Target::P1BALL : Target::P2BALL;
+        
+        // Notify ritual of a minion entering play
+if (ritual) {
+    State triggerState{Action::play, Source::H1, Target::NONE}; // customize if needed
+    ritual->execute(triggerState, this, opponent);
+}
+
+if (opponent) {
+            opponent->activateTrigger(triggerState);
+        }
+
+    }
+    else if (type == "Spell") {
+        Spell* s = dynamic_cast<Spell*>(card.get());
+        if (s && s->requiresTarget()) {
+            if (state.target != Target::NONE) {
+                s->execute(state, this, opponent);
+            } else {
+                std::cerr << "Target required but not provided.\n";
+            }
+        } else if (s) {
+            s->execute(state, this, opponent);
+        }
+    }
+    else if (type == "Enchantment") {
+        if (state.target != Target::NONE) {
+            card->execute(state, this, opponent);
+        } else {
+            std::cerr << "Target required but not provided.\n";
+        }
     }
 }
 
@@ -132,17 +211,34 @@ int oppo_to_index(State s) {
 }
 
 
-void Player::attack(State state) {
-    int index = source_to_index(state);
-    Minion* attacker = dynamic_cast<Minion*>(board.at(index).get());
-    if (state.target == Target::player2) {
-        attacker->attackPlayer(opponent);
+void Player::attack(const State& state) {
+    int attackerIndex = static_cast<int>(state.source) - static_cast<int>(Source::B1);
+    Minion* attacker = getMinion(attackerIndex);
+    if (!attacker) return;
+
+    if (state.target == Target::player1 || state.target == Target::player2) {
+        opponent->setHealth(opponent->getHealth() - attacker->getDefence());
     } else {
-        int oppoindex = oppo_to_index(state);
-        Minion* defender = dynamic_cast<Minion*>(opponent->board.at(oppoindex).get());
-        attacker->attackMinion(defender);
+        int targetIndex = -1;
+        Player* defender = this;
+
+        if (state.target >= Target::P2B1 && state.target <= Target::P2B5) {
+            targetIndex = static_cast<int>(state.target) - static_cast<int>(Target::P2B1);
+            defender = opponent;
+        } else if (state.target >= Target::P1B1 && state.target <= Target::P1B5) {
+            targetIndex = static_cast<int>(state.target) - static_cast<int>(Target::P1B1);
+        }
+
+        Minion* targetMinion = defender->getMinion(targetIndex);
+        if (!targetMinion) return;
+
+        attacker->attackMinion(targetMinion);
+
+        if (attacker->getDefence() <= 0) moveMinionToGraveyard(attackerIndex);
+        if (targetMinion->getDefence() <= 0) defender->moveMinionToGraveyard(targetIndex);
     }
 }
+
 
 void Player::use(State state) {
     if (board.size() <= 5) return;
@@ -165,12 +261,31 @@ void Player::notify(State state) {
 void Player::startOfTurn() {
     magic_ = 3;
     drawCard();
+    if (ritual && ritual->getName() == "Dark Ritual") {
+    if (ritual->canActivate()) {
+        magic_ += 1;
+        ritual->consumeCharges();
+    }
+}
+
     for (const auto& card : board) {
         card->startOfTurnTrigger();
     }
 }
 
 void Player::endOfTurn() {
+    for (const auto& card : board) {
+    Minion* m = dynamic_cast<Minion*>(card.get());
+    if (m && m->getName() == "Potion Seller") {
+        for (auto& ally : board) {
+            Minion* allyMinion = dynamic_cast<Minion*>(ally.get());
+            if (allyMinion) {
+                allyMinion->modifyStats(0, 1);  // +0/+1
+            }
+        }
+    }
+}
+
     for (const auto& card : board) {
         card->endOfTurnTrigger();
     }
@@ -180,9 +295,6 @@ void Player::setHealth(int h) { health_ = h; }
 int Player::getHealth() const { return health_; }
 int Player::getMagic() const { return magic_; }
 const std::string& Player::getName() const { return name_; }
-
-
-
 
 
 Card* Player::getRitual() const {
@@ -197,4 +309,86 @@ Minion* Player::getMinion(int index) const {
     if (index < 0 || index >= static_cast<int>(board.size())) return nullptr;
     return dynamic_cast<Minion*>(board[index].get());
 }
+
+void Player::inspect(int i) const {
+    if (i < 0 || i >= static_cast<int>(board.size())) {
+        std::cout << "Invalid minion index.\n";
+        return;
+    }
+
+    Minion* minion = dynamic_cast<Minion*>(board[i].get());
+    if (!minion) {
+        std::cout << "Card at this index is not a minion.\n";
+        return;
+    }
+
+    const auto& baseTemplate = minion->render();
+    for (const auto& line : baseTemplate) {
+        std::cout << line << '\n';
+    }
+
+    if (!minion->getEnchantments().empty()) return;
+
+    const auto& enchantments = minion->getEnchantments();
+    std::vector<card_template_t> stack;
+    for (const auto& e : enchantments) {
+        stack.push_back(e->render());
+    }
+
+    // Print in groups of 5 per line
+    for (size_t i = 0; i < stack.size(); i += 5) {
+        size_t groupSize = std::min(static_cast<size_t>(5), stack.size() - i);
+        for (size_t line = 0; line < stack[0].size(); ++line) {
+            for (size_t j = 0; j < groupSize; ++j) {
+                std::cout << stack[i + j][line];
+            }
+            std::cout << '\n';
+        }
+    }
+}
+
+void Player::activateTrigger(const State& state) {
+    if (ritual) {
+        Ritual* r = dynamic_cast<Ritual*>(ritual.get());
+        if (!r || !r->canActivate()) return;
+
+        const std::string name = r->getName();
+
+        if (name == "Standstill" && state.action == Action::play) {
+            destroyMinion(state.target);
+            r->consumeCharges();
+        } else if (name == "Aura of Power" && state.action == Action::play &&
+                   ((getId() == 1 && state.target >= Target::P1B1 && state.target <= Target::P1B5) ||
+                    (getId() == 2 && state.target >= Target::P2B1 && state.target <= Target::P2B5))) {
+
+            int index = static_cast<int>(state.target) % 5;
+            Minion* m = getMinion(index);
+            if (m) {
+                m->modifyStats(1, 1); // +1/+1
+                r->consumeCharges();
+            }
+        }
+    }
+
+    for (auto& c : board) {
+        Minion* m = dynamic_cast<Minion*>(c.get());
+        if (!m) continue;
+
+        const std::string name = m->getName();
+
+        if (name == "Bone Golem" && state.action == Action::play &&
+            (state.target >= Target::P1B1 && state.target <= Target::P2B5)) {
+            m->modifyStats(1, 1); // +1/+1 when any minion leaves play
+        } else if (name == "Fire Elemental" && state.action == Action::play &&
+                   ((getId() == 1 && state.target >= Target::P2B1 && state.target <= Target::P2B5) ||
+                    (getId() == 2 && state.target >= Target::P1B1 && state.target <= Target::P1B5))) {
+            int index = static_cast<int>(state.target) % 5;
+            Player* enemy = getId() == 1 ? opponent : this;
+            Minion* target = enemy->getMinion(index);
+            if (target) target->modifyStats(0, -1); // Deal 1 damage
+        }
+    }
+}
+
+
 

@@ -1,49 +1,48 @@
-#include <algorithm>
-#include <memory>
+// ===== Card.cc =====
 #include "Card.h"
+#include "Player.h"
+#include "CardInfo.h"
+#include "ascii_graphics.h"
+#include <typeinfo>
 
-
-// i need setHealth() fn for Player class 
-// play: call card.execute if you need to play cards other than minion
-// also check cost
-
-// ==================== Card Base Class ====================
-
-Card::Card(const std::string& name, int cost) 
+// --------- Base Class ---------
+Card::Card(const std::string& name, int cost)
     : name(name), cost(cost), owner(nullptr), description("") {}
 
-// ADDED
 const std::string& Card::getName() const {
     return name;
 }
 
-
-
-// ==================== Minion Class ====================
-
+// --------- Minion ---------
 Minion::Minion(const std::string& name, int cost, int attack, int defence)
-    : Card(name, cost), baseAttack(attack), baseDefence(defence), 
+    : Card(name, cost), baseAttack(attack), baseDefence(defence),
       attack(attack), defence(defence), actions(0) {}
 
 void Minion::attackPlayer(Player* target) {
-    if (!canAttack() || !target) return;
-    
+    if (!target) return;
     target->setHealth(target->getHealth() - attack);
-    useAction();
 }
 
-void Minion::attackMinion(Minion* target) {
-    if (!canAttack() || !target) return;
-    
-    // Both minions damage each other simultaneously
-    int myAttack = this->attack;
-    int targetAttack = target->attack;
-    
-    this->defence -= targetAttack;
-    target->defence -= myAttack;
-    
-    useAction();
+int Minion::getDefence() const {
+    return defence;
 }
+
+int Minion::getAttack() const {
+    return attack;
+}
+
+
+
+void Minion::attackMinion(Minion* target) {
+    if (!target) return;
+    target->defence -= attack;
+    this->defence -= target->attack;
+}
+
+bool Minion::hasTrigger() const {
+    return activatedAbility != nullptr;  // or whatever logic you want
+}
+
 
 void Minion::modifyStats(int attackMod, int defenceMod) {
     attack += attackMod;
@@ -52,53 +51,31 @@ void Minion::modifyStats(int attackMod, int defenceMod) {
 
 void Minion::addEnchantment(std::unique_ptr<Enchantment> enchantment) {
     if (!enchantment) return;
-    
-    // Apply enchantment effects
+
     int attackMod = enchantment->getAttackModValue();
     int defenceMod = enchantment->getDefenceModValue();
-    
+
     switch (enchantment->getAttackModType()) {
-        case Enchantment::ModType::ADD:
-            attack += attackMod;
-            break;
-        case Enchantment::ModType::MULTIPLY:
-            attack *= attackMod;
-            break;
-        case Enchantment::ModType::SET:
-            attack = attackMod;
-            break;
+        case Enchantment::ModType::ADD: attack += attackMod; break;
+        case Enchantment::ModType::MULTIPLY: attack *= attackMod; break;
+        case Enchantment::ModType::SET: attack = attackMod; break;
     }
-    
+
     switch (enchantment->getDefenceModType()) {
-        case Enchantment::ModType::ADD:
-            defence += defenceMod;
-            break;
-        case Enchantment::ModType::MULTIPLY:
-            defence *= defenceMod;
-            break;
-        case Enchantment::ModType::SET:
-            defence = defenceMod;
-            break;
+        case Enchantment::ModType::ADD: defence += defenceMod; break;
+        case Enchantment::ModType::MULTIPLY: defence *= defenceMod; break;
+        case Enchantment::ModType::SET: defence = defenceMod; break;
     }
-    
-    // If enchantment grants an ability, replace current ability
-    if (enchantment->grantsActivatedAbility()) {
-        activatedAbility = enchantment->getGrantedAbility();
-    }
-    
+
     enchantments.push_back(std::move(enchantment));
 }
 
 void Minion::removeAllEnchantments() {
-    // Reset to base stats
     attack = baseAttack;
     defence = baseDefence;
-    activatedAbility = nullptr;
-    
     enchantments.clear();
 }
 
-// ADDED
 std::string Minion::getType() const {
     return "Minion";
 }
@@ -114,36 +91,16 @@ card_template_t Minion::render() const {
     }
 }
 
-
-
-void Minion::displayCard() const {
-    // Display implementation will be handled elsewhere
-}
-
-void Minion::displayWithEnchantments() const {
-    // Display implementation will be handled elsewhere
-}
-
-// ==================== Spell Class ====================
-
-Spell::Spell(const std::string& name, int cost, 
-             std::function<void(const State&, Player*, Player*)> effect, 
+// --------- Spell ---------
+Spell::Spell(const std::string& name, int cost,
+             std::function<void(const State&, Player*, Player*)> effect,
              bool needsTarget)
     : Card(name, cost), spellEffect(effect), needsTarget(needsTarget) {}
 
-void Spell::execute(const State& state, Player* owner, Player* other){
-    
-    
-    if (spellEffect) {
-        spellEffect(state, owner, other);
-    }
+void Spell::execute(const State& state, Player* owner, Player* other) {
+    if (spellEffect) spellEffect(state, owner, other);
 }
 
-void Spell::displayCard() const {
-    // Display implementation will be handled elsewhere
-}
-
-// ADDED
 std::string Spell::getType() const {
     return "Spell";
 }
@@ -153,33 +110,51 @@ card_template_t Spell::render() const {
     return display_spell(info.name, info.cost, info.desc);
 }
 
-// ==================== Enchantment Class ====================
-
+// --------- Enchantment ---------
 Enchantment::Enchantment(const std::string& name, int cost,
-                        int attackModValue, ModType attackModType,
-                        int defenceModValue, ModType defenceModType,
-                        const std::string& attackModStr, const std::string& defenceModStr,
-                        bool grantsAbility, std::function<void(const State&, Player*)> grantedAbility)
-    : Card(name, cost), attackModValue(attackModValue), attackModType(attackModType),
+                         int attackModValue, ModType attackModType,
+                         int defenceModValue, ModType defenceModType,
+                         const std::string& attackModStr, const std::string& defenceModStr,
+                         bool grantsAbility,
+                         std::function<void(const State&, Player*)> grantedAbility)
+    : Card(name, cost),
+      attackModValue(attackModValue), attackModType(attackModType),
       defenceModValue(defenceModValue), defenceModType(defenceModType),
       attackModStr(attackModStr), defenceModStr(defenceModStr),
-      grantsAbility(grantsAbility), grantedAbility(grantedAbility) {
-    
-    // Generate mod strings if not provided
-    if (this->attackModStr.empty()) {
-        this->attackModStr = generateModString(attackModValue, attackModType);
+      grantsAbility(grantsAbility), grantedAbility(grantedAbility) {}
+
+void Enchantment::execute(const State& state, Player* owner, Player* other) {
+    Player* targetPlayer = nullptr;
+    int index = -1;
+
+    // Determine which player's minion to enchant based on the target
+    switch (state.target) {
+        case Target::P1B1: case Target::P1B2: case Target::P1B3:
+        case Target::P1B4: case Target::P1B5:
+            targetPlayer = owner;
+            index = static_cast<int>(state.target) - static_cast<int>(Target::P1B1);
+            break;
+        case Target::P2B1: case Target::P2B2: case Target::P2B3:
+        case Target::P2B4: case Target::P2B5:
+            targetPlayer = other;
+            index = static_cast<int>(state.target) - static_cast<int>(Target::P2B1);
+            break;
+        default:
+            return; // Invalid target
     }
-    if (this->defenceModStr.empty()) {
-        this->defenceModStr = generateModString(defenceModValue, defenceModType);
+
+    Minion* targetMinion = targetPlayer->getMinion(index);
+    if (targetMinion) {
+        targetMinion->addEnchantment(std::make_unique<Enchantment>(*this));
     }
 }
 
+
 bool Enchantment::isValidTarget(Target target) const {
-    // Enchantments can only target minions
     switch (target) {
-        case Target::P1B1: case Target::P1B2: case Target::P1B3: 
+        case Target::P1B1: case Target::P1B2: case Target::P1B3:
         case Target::P1B4: case Target::P1B5:
-        case Target::P2B1: case Target::P2B2: case Target::P2B3: 
+        case Target::P2B1: case Target::P2B2: case Target::P2B3:
         case Target::P2B4: case Target::P2B5:
             return true;
         default:
@@ -187,86 +162,6 @@ bool Enchantment::isValidTarget(Target target) const {
     }
 }
 
-/* 
-void Enchantment::execute(const State& state, Player* owner, Player* other) {
-    // Determine which minion to target based on state.target
-    Minion* targetMinion = nullptr;
-    
-    switch (state.target) {
-        // Player 1 (owner) board positions
-        case Target::P1B1:
-            if (owner->board.size() > 0) targetMinion = owner->board[0].get();
-            break;
-        case Target::P1B2:
-            if (owner->board.size() > 1) targetMinion = owner->board[1].get();
-            break;
-        case Target::P1B3:
-            if (owner->board.size() > 2) targetMinion = owner->board[2].get();
-            break;
-        case Target::P1B4:
-            if (owner->board.size() > 3) targetMinion = owner->board[3].get();
-            break;
-        case Target::P1B5:
-            if (owner->board.size() > 4) targetMinion = owner->board[4].get();
-            break;
-            
-        // Player 2 (other) board positions  
-        case Target::P2B1:
-            if (other->board.size() > 0) targetMinion = other->board[0].get();
-            break;
-        case Target::P2B2:
-            if (other->board.size() > 1) targetMinion = other->board[1].get();
-            break;
-        case Target::P2B3:
-            if (other->board.size() > 2) targetMinion = other->board[2].get();
-            break;
-        case Target::P2B4:
-            if (other->board.size() > 3) targetMinion = other->board[3].get();
-            break;
-        case Target::P2B5:
-            if (other->board.size() > 4) targetMinion = other->board[4].get();
-            break;
-            
-        default:
-            // Invalid target for enchantment
-            return;
-    }
-    
-    // If we found a valid target minion, add this enchantment to it
-    if (targetMinion) {
-        // Create a copy of this enchantment to add to the minion
-        // Note: You'll need to implement a copy constructor or clone method
-        auto enchantmentCopy = std::make_unique<Enchantment>(
-            this->name, this->cost,
-            this->attackModValue, this->attackModType,
-            this->defenceModValue, this->defenceModType,
-            this->attackModStr, this->defenceModStr,
-            this->grantsAbility, this->grantedAbility
-        );
-        
-        targetMinion->addEnchantment(std::move(enchantmentCopy));
-    }
-}
-*/
-
-void Enchantment::displayCard() const {
-    // Display implementation will be handled elsewhere
-}
-
-std::string Enchantment::generateModString(int value, ModType type) const {
-    switch (type) {
-        case ModType::ADD:
-            return (value >= 0 ? "+" : "") + std::to_string(value);
-        case ModType::MULTIPLY:
-            return "*" + std::to_string(value);
-        case ModType::SET:
-            return "=" + std::to_string(value);
-        default:
-            return "";
-    }
-}
-
-// ADDED
 std::string Enchantment::getType() const {
     return "Enchantment";
 }
@@ -282,25 +177,32 @@ card_template_t Enchantment::render() const {
     }
 }
 
-
-// ==================== Ritual Class ====================
-
-Ritual::Ritual(const std::string& name, int cost, int charges, int activationCost,
-               std::function<void()> effect)
-    : Card(name, cost), charges(charges), activationCost(activationCost), 
-      ritualEffect(effect) {}
-
-void Ritual::execute(const State& state, Player* player, Player* other) {
-    
-    
-    charges -= activationCost;
-    if (ritualEffect) {
-        ritualEffect();
+std::string Enchantment::generateModString(int value, ModType type) const {
+    switch (type) {
+        case ModType::ADD: return (value >= 0 ? "+" : "") + std::to_string(value);
+        case ModType::MULTIPLY: return "*" + std::to_string(value);
+        case ModType::SET: return "=" + std::to_string(value);
+        default: return "";
     }
-
 }
 
-// ADDED
+// --------- Ritual ---------
+Ritual::Ritual(const std::string& name, int cost, int charges, int activationCost,
+               std::function<void()> effect)
+    : Card(name, cost), charges(charges), activationCost(activationCost), ritualEffect(effect) {}
+
+void Ritual::execute(const State& state, Player* player, Player* other) {
+    if (canActivate()) {
+        if (ritualEffect) ritualEffect();  // Optional base effect
+        charges -= activationCost;
+    }
+}
+
+bool Ritual::canActivate() const {
+    return charges >= activationCost;
+}
+
+
 std::string Ritual::getType() const {
     return "Ritual";
 }
@@ -310,9 +212,20 @@ card_template_t Ritual::render() const {
     return display_ritual(info.name, info.cost, info.actCost, info.desc, info.charges);
 }
 
-
-
-
-void Ritual::displayCard() const {
-    // Display implementation will be handled elsewhere
+void Ritual::consumeCharges() {
+    charges -= activationCost;
 }
+
+int Ritual::getCharges() const {
+    return charges;
+}
+
+int Ritual::getChargeCost() const {
+    return activationCost;
+}
+
+std::string Ritual::getDescription() const {
+    return description;
+}
+
+

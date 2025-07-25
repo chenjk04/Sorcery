@@ -1,234 +1,151 @@
 #ifndef CARD_H
 #define CARD_H
 
-#include <functional>
-#include <memory>
 #include <string>
 #include <vector>
+#include <memory>
+#include <functional>
 #include "State.h"
-#include "Player.h"
-#include "CardInfo.h"
 #include "ascii_graphics.h"
 
+class Player;
 
+// --------- Base Class ---------
 class Card {
 protected:
     std::string name;
     int cost;
     Player* owner;
-    Player* other;
     std::string description;
 
 public:
     Card(const std::string& name, int cost);
     virtual ~Card() = default;
-    
-    // Pure virtual methods
-    virtual std::string getType() const = 0;
-    const std::string& getName() const;
-    //virtual std::unique_ptr<Card> clone() const = 0;
 
+    const std::string& getName() const;
     virtual std::string getType() const = 0;
     virtual card_template_t render() const = 0;
-    
-    // Common getters
-    //std::string getName() const { return name; }
-    std::string getDescription() const {return description;}
-    int getCost() const { return cost; }
-    Player* getOwner() const { return owner; }
-    void setOwner(Player* newOwner) { owner = newOwner; }
-    
-    // Action handling - works with your State system
+
+    virtual int getCost() const { return cost; }
+
+    virtual bool canActivate() const { return false; }
+    virtual void consumeCharges() {}
+
     virtual void execute(const State& state, Player* owner, Player* other) {}
-    
-    
-    std::function<void()> startOfTurnTrigger = nullptr;
-    std::function<void()> endOfTurnTrigger = nullptr;
-    std::function<void()> minionEntersTrigger = nullptr;
-    std::function<void()> minionLeavesTrigger = nullptr;
-    
-    // For your Component system
-    virtual bool requiresTarget() const { return false; }
-    virtual bool isValidTarget(Target target) const { return false; }
-    
-    // Display
-    virtual void displayCard() const = 0;
+    virtual void startOfTurnTrigger() {}
+    virtual void endOfTurnTrigger() {}
 };
 
-// Minion class
+// --------- Minion ---------
+class Enchantment; // forward declaration
+
 class Minion : public Card {
-private:
-    int baseAttack;     // Original stats
-    int baseDefence;
-    int attack;         // Current stats (after enchantments)
-    int defence;
+    int baseAttack, baseDefence;
+    int attack, defence;
     int actions;
-    
-    
-    // Track enchantments for inspection and removal
+    std::function<void(const State&, Player*, Player*)> activatedAbility;
     std::vector<std::unique_ptr<Enchantment>> enchantments;
-    
+
 public:
     Minion(const std::string& name, int cost, int attack, int defence);
-    
-    std::string getType() const override { return "Minion"; }
-    
-    // Combat
+
     void attackPlayer(Player* target);
     void attackMinion(Minion* target);
-    bool canAttack() const { return actions > 0; }
-    void useAction() { if (actions > 0) actions--; }
-    void resetActions() { actions = 1; } // start of turn 
-    
-    // Stats
-    int getAttack() const { return attack; }
-    int getDefence() const { return defence; }
-    int getActions() const { return actions; }
-    int getBaseAttack() const { return baseAttack; }
-    int getBaseDefence() const { return baseDefence; }
     void modifyStats(int attackMod, int defenceMod);
-    bool isDead() const { return defence <= 0; }
-    
-    // Enchantment management
     void addEnchantment(std::unique_ptr<Enchantment> enchantment);
-    void removeAllEnchantments();  // Called when minion leaves play
-    const std::vector<std::unique_ptr<Enchantment>>& getEnchantments() const { return enchantments; }
+    void removeAllEnchantments();
+
+    int getDefence() const;
+    int getAttack() const;
+
+    bool hasTrigger() const;
     
-    // For inspect command
-    void displayWithEnchantments() const;
-    
-    // Activated ability - function pointer approach  
-    std::function<void(const State&, Player*)> activatedAbility = nullptr;
-    
-    
-    // Works with your State system
-    void execute(const State& state, Player* owner, Player* other) override;
-    
-    
-    void displayCard() const override;
-    
-    //std::unique_ptr<Card> clone() const override;
 
     std::string getType() const override;
     card_template_t render() const override;
+
+    const std::vector<std::unique_ptr<Enchantment>>& getEnchantments() const {
+    return enchantments;
+}
+
 };
 
-// Spell class
+// --------- Spell ---------
 class Spell : public Card {
-private:
     std::function<void(const State&, Player*, Player*)> spellEffect;
     bool needsTarget;
-    
-public:
-    Spell(const std::string& name, int cost, 
-          std::function<void(const State&, Player*, Player*)> effect, 
-          bool needsTarget = false);
-    
-    std::string getType() const override { return "Spell"; }
-    
-    void execute(const State& state, Player* owner, Player* other) override;
-    bool requiresTarget() const override { return needsTarget; }
-    
-    void displayCard() const override;
-    
-    //std::unique_ptr<Card> clone() const override;
 
+public:
+    Spell(const std::string& name, int cost,
+          std::function<void(const State&, Player*, Player*)> effect,
+          bool needsTarget);
+
+    void execute(const State& state, Player* owner, Player* other) override;
     std::string getType() const override;
     card_template_t render() const override;
+    bool requiresTarget() const { return needsTarget; }
+
 };
 
-// Enchantment class
+// --------- Enchantment ---------
 class Enchantment : public Card {
 public:
-    enum class ModType {
-        ADD,      // +X
-        MULTIPLY, // *X
-        SET       // =X (sets to specific value)
-    };
+    enum class ModType { ADD, MULTIPLY, SET };
 
 private:
-    int attackModValue = 0;
-    int defenceModValue = 0;
-    ModType attackModType = ModType::ADD;
-    ModType defenceModType = ModType::ADD;
-    std::string attackModStr = "";  // For display ("+2", "*2", "=5", etc.)
-    std::string defenceModStr = "";
-    std::function<void(Minion*)> enchantEffect = nullptr;
-    bool grantsAbility = false;
-    std::function<void(const State&, Player*)> grantedAbility = nullptr;
+    int attackModValue, defenceModValue;
+    ModType attackModType, defenceModType;
+    std::string attackModStr, defenceModStr;
+    bool grantsAbility;
+    std::function<void(const State&, Player*)> grantedAbility;
 
 public:
-    
-    Enchantment(const std::string& name, int cost, 
-                int attackModValue = 0, ModType attackModType = ModType::ADD,
-                int defenceModValue = 0, ModType defenceModType = ModType::ADD,
-                const std::string& attackModStr = "", const std::string& defenceModStr = "",
-                bool grantsAbility = false, std::function<void(const State&, Player*)> grantedAbility = nullptr);
-    
-    
-    
-    std::string getType() const override { return "Enchantment"; }
-    bool requiresTarget() const override { return true; }
-    bool isValidTarget(Target target) const override;
-    
+    Enchantment(const std::string& name, int cost,
+                int attackModValue, ModType attackModType,
+                int defenceModValue, ModType defenceModType,
+                const std::string& attackModStr, const std::string& defenceModStr,
+                bool grantsAbility,
+                std::function<void(const State&, Player*)> grantedAbility);
+
     void execute(const State& state, Player* owner, Player* other) override;
-    
-    
+    bool isValidTarget(Target target) const;
+
     int getAttackModValue() const { return attackModValue; }
-    int getDefenceModValue() const { return defenceModValue; }
     ModType getAttackModType() const { return attackModType; }
+    int getDefenceModValue() const { return defenceModValue; }
     ModType getDefenceModType() const { return defenceModType; }
-    std::string getAttackModStr() const { return attackModStr; }
-    std::string getDefenceModStr() const { return defenceModStr; }
-    
-    
     bool grantsActivatedAbility() const { return grantsAbility; }
     std::function<void(const State&, Player*)> getGrantedAbility() const { return grantedAbility; }
-    
-    
-    void displayCard() const override;
-    
-    //std::unique_ptr<Card> clone() const override;
 
     std::string getType() const override;
     card_template_t render() const override;
 
 private:
-    
-    // Helper method to generate mod string from value and type
     std::string generateModString(int value, ModType type) const;
 };
 
-// Ritual class
+// --------- Ritual ---------
 class Ritual : public Card {
-private:
     int charges;
     int activationCost;
     std::function<void()> ritualEffect;
-    
+
 public:
     Ritual(const std::string& name, int cost, int charges, int activationCost,
            std::function<void()> effect);
-    
-    std::string getType() const override { return "Ritual"; }
-    
-    void execute(const State& state, Player* owner, Player* other) override;
-    bool canActivate() const { return charges >= activationCost; }
-    void activate();
-    void addCharges(int amount) { charges += amount; }
-    
-    int getCharges() const { return charges; }
-    int getActivationCost() const { return activationCost; }
-    
-    void displayCard() const override;
-    
-    //std::unique_ptr<Card> clone() const override;
+
+    void execute(const State& state, Player* player, Player* other) override;
+    void consumeCharges() override;
+    bool canActivate() const override;
+
+    int getCharges() const;
+    int getChargeCost() const;
+    std::string getDescription() const;
+
 
     std::string getType() const override;
     card_template_t render() const override;
 };
 
 #endif
-
-
 
