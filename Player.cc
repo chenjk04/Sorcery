@@ -38,7 +38,7 @@ void Player::loadDeckFromFile(const std::string& filename) {
                 Enchantment::ModType::ADD, info.hp, Enchantment::ModType::ADD,
                 "", "", false, nullptr));
         } else if (info.type == "Ritual") {
-            deck.emplace_back(std::make_unique<Ritual>(cardName, info.cost, info.charges, info.actCost, []{}));
+            deck.emplace_back(std::make_unique<Ritual>(cardName, info.cost, info.charges, info.actCost));
         }
     }
     std::reverse(deck.begin(), deck.end());
