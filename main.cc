@@ -1,10 +1,21 @@
+<<<<<<< HEAD
 
+=======
+#include "Game.h"
+#include "Player.h"
+>>>>>>> 53af7a32b7f20d3120e2f12a06f67a46ad210182
 #include <iostream>
 #include <sstream>
 #include <string>
-#include "Player.h"
 
 void printHelp() {
+    std::cout << "Commands:\n"
+    << "  help             Show this message\n"
+    << "  draw             Draw a card\n"
+    << "  play N           Play card N from your hand\n"
+    << "  attack N         Attack opponent or minion N\n"
+    << "  end              End your turn\n"
+    << "  quit             Quit the game\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -28,41 +39,47 @@ int main(int argc, char* argv[]) {
     Player* opp = &p2;
 
     // initial draws
-    for (int i = 0; i < 4; ++i) {
-        p1.draw(); p2.draw();
+    for (int i = 0; i < 5; ++i) {
+        p1.draw();
+        p2.draw();
     }
 
     printHelp();
     std::string line;
     while (true) {
-        std::cout << "";
+        // Show status
         std::cout << p1.getName() << " (" << p1.getHealth() << ") | "
-                  << p2.getName() << " (" << p2.getHealth() << ")";
+                  << p2.getName() << " (" << p2.getHealth() << ")\n";
         std::cout << cur->getName() << "> ";
+
         if (!std::getline(std::cin, line)) break;
         std::istringstream ss(line);
         std::string cmd; ss >> cmd;
-        if (cmd == "quit") break;
-        else if (cmd == "help") printHelp();
-        else if (cmd == "draw") cur->draw();
-        else if (cmd == "play") {
+
+        cur->startOfTurn();  // trigger start‐of‐turn effects
+
+        if (cmd == "quit") {
+            break;
+        } else if (cmd == "help") {
+            printHelp();
+        } else if (cmd == "draw") {
+            cur->draw();
+        } else if (cmd == "play") {
             int n; if (ss >> n) cur->play(n-1);
         } else if (cmd == "attack") {
             int n; if (ss >> n) cur->attack(n-1, *opp);
         } else if (cmd == "end") {
-            cur->endOfTurn(); opp->startOfTurn();
+            cur->endOfTurn();  
             std::swap(cur, opp);
         } else {
-            std::cout << "Unknown command. Type 'help'.";
+            std::cout << "Unknown command. Type 'help'.\n";
         }
-        // show state
-        std::cout << "Hand of " << cur->getName() << ":";
-        cur->showHand();
-        std::cout << "Board of " << cur->getName() << ":";
-        cur->showBoard();
+
+        // Show boards
+        std::cout << cur->getName() << "'s hand:\n"; cur->showHand();
+        std::cout << cur->getName() << "'s board:\n"; cur->showBoard();
     }
 
-    std::cout << "Game over.";
+    std::cout << "Game over.\n";
     return 0;
 }
-
