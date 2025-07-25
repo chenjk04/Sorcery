@@ -122,8 +122,8 @@ Enchantment::Enchantment(const std::string& name, int cost,
                          bool grantsAbility,
                          std::function<void(const State&, Player*)> grantedAbility)
     : Card(name, cost),
-      attackModValue(attackModValue), attackModType(attackModType),
-      defenceModValue(defenceModValue), defenceModType(defenceModType),
+      attackModValue(attackModValue), defenceModValue(defenceModValue),    // both int values first
+      attackModType(attackModType), defenceModType(defenceModType),        // both ModType values second
       attackModStr(attackModStr), defenceModStr(defenceModStr),
       grantsAbility(grantsAbility), grantedAbility(grantedAbility) {}
 

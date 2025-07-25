@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <memory>
-#include "Minion.h"
+#include "Card.h"
 
 class Graveyard {
 public:
@@ -29,3 +29,5 @@ public:
 private:
     std::vector<std::unique_ptr<Minion>> minions_;
 };
+
+#endif
