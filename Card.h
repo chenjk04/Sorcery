@@ -7,6 +7,7 @@
 #include <vector>
 #include "State.h"
 #include "Player.h"
+#include "CardInfo.h"
 
 
 class Card {
@@ -114,6 +115,7 @@ public:
     Spell(const std::string& name, int cost, 
           std::function<void(const State&, Player*, Player*)> effect, 
           bool needsTarget = false);
+    
     
     std::string getType() const override { return "Spell"; }
     

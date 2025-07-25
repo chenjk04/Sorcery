@@ -1,41 +1,20 @@
-// CardInfo.h
 
 #include <string>
 #include <unordered_map>
 
-class CardInfo {
-public:
-    // full constructor (you can supply only the fields you need)
-    CardInfo(std::string name = "", int cost = 0, std::string desc = "", int atk = 0, int def = 0, int actCost = 0)
-      : name_(std::move(name))
-      , cost_(cost)
-      , desc_(std::move(desc))
-      , atk_(atk)
-      , def_(def)
-      , actCost_(actCost)
-      //, charges_(charges)
+struct CardInfo {
+    std::string name, type, desc;
+    int cost = 0, atk = 0, hp = 0, actCost = 0, charges = 0;
+
+    CardInfo(std::string n, std::string t, int c, std::string d,
+             int a=0, int h=0, int ac=0, int ch=0)
+      : name(std::move(n)), type(std::move(t)),
+        cost(c), desc(std::move(d)),
+        atk(a), hp(h), actCost(ac), charges(ch)
     {}
 
-    // getters
-    const std::string& name() const { return name_; }
-    int cost() const { return cost_; }
-    const std::string& description() const { return desc_;        }
-    int attack() const { return atk_;  }
-    int                 def()      const { return def_;          }
-    int                 activatedCost() const { return actCost_;    }
-    
-
-    // lookup by card name
-    static const CardInfo& get(const std::string& cardName);
+    static const CardInfo& get(const std::string& key);
 
 private:
-    std::string name_;
-    int  cost_;
-    std::string desc_;
-    int atk_; 
-    int def_;
-    int actCost_;
-
-    // central hard‑coded database
     static const std::unordered_map<std::string,CardInfo> infoMap_;
 };

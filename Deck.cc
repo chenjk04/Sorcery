@@ -19,13 +19,66 @@ void Deck::loadFromFile(const std::string& filename) {
         std::cerr << "Failed to open deck file: " << filename << "\n";
         return;
     }
-    std::string line;
-    while (std::getline(in, line)) {
-        if (line.empty()) continue;
-        cards.push_back(new Card(line));
+
+    std::string cardName;
+    while (std::getline(in, cardName)) {
+        if (cardName.empty()) continue;
+
+        // 1) Grab the type + all stats from your central lookup
+        const auto& info = CardInfo::get(cardName);
+
+        // 2) Instantiate the right subclass
+        if (info.type == "Minion") {
+            cards.push_back(new Minion(
+                cardName,
+                info.cost,
+                info.atk,
+                info.hp
+            ));
+        }
+        else if (info.type == "Spell") {
+            // here we pass an empty/no‐op effect and no target flag;
+            // swap in your real effect map if you have one
+            cards.push_back(new Spell(
+                cardName,
+                info.cost,
+                /* effect  */ {},
+                /* needsTarget */ false
+            ));
+        }
+        else if (info.type == "Enchantment") {
+            cards.push_back(new Enchantment(
+                cardName,
+                info.cost,
+                /* attackModValue */ info.atk,
+                /* attackModType  */ Enchantment::ModType::ADD,
+                /* defenceModValue*/ info.hp,
+                /* defenceModType */ Enchantment::ModType::ADD,
+                /* attackModStr   */ "",
+                /* defenceModStr  */ "",
+                /* grantsAbility  */ false,
+                /* grantedAbility */ nullptr
+            ));
+        }
+        else if (info.type == "Ritual") {
+            cards.push_back(new Ritual(
+                cardName,
+                info.cost,
+                /* charges         */ info.charges,
+                /* activationCost  */ info.actCost,
+                /* effect          */ [](Player*){}
+            ));
+        }
+        else {
+            std::cerr << "Unknown card type \"" << info.type
+                      << "\" for card \"" << cardName << "\"\n";
+        }
     }
+
+    // 3) reverse so the first‐line of the file is on top of deck
     std::reverse(cards.begin(), cards.end());
 }
+
 
 void Deck::shuffle() {
     std::shuffle(cards.begin(), cards.end(), rng);
