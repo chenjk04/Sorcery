@@ -32,8 +32,14 @@ public:
     virtual void consumeCharges() {}
 
     virtual void execute(const State& state, Player* owner, Player* other) {}
-    virtual void startOfTurnTrigger() {}
-    virtual void endOfTurnTrigger() {}
+
+    // Trigger function pointers
+    std::function<void(Player* owner, Player* opponent)> startOfTurnTrigger;
+    std::function<void(Player* owner, Player* opponent)> endOfTurnTrigger;
+    std::function<void(Player* owner, Player* opponent)> anyMinionEnter;
+    std::function<void(Player* owner, Player* opponent)> myMinionEnter;
+    std::function<void(Player* owner, Player* opponent)> anyMinionDie;
+    std::function<void(Player* owner, Player* opponent)> myMinionDie;
 };
 
 // --------- Minion ---------
@@ -43,7 +49,7 @@ class Minion : public Card {
     int baseAttack, baseDefence;
     int attack, defence;
     int actions;
-    std::function<void(const State&, Player*, Player*)> activatedAbility;
+    std::function<void(Player*, Player*)> activatedAbility;
     std::vector<std::unique_ptr<Enchantment>> enchantments;
 
 public:
@@ -54,6 +60,7 @@ public:
     void modifyStats(int attackMod, int defenceMod);
     void addEnchantment(std::unique_ptr<Enchantment> enchantment);
     void removeAllEnchantments();
+    void useAbility(Player* target) {if (actions > 0){actions--;} else {return;} this->activatedAbility(this->owner, target);}
 
     int getDefence() const;
     int getAttack() const;
@@ -65,9 +72,8 @@ public:
     card_template_t render() const override;
 
     const std::vector<std::unique_ptr<Enchantment>>& getEnchantments() const {
-    return enchantments;
-}
-
+        return enchantments;
+    }
 };
 
 // --------- Spell ---------
@@ -84,7 +90,6 @@ public:
     std::string getType() const override;
     card_template_t render() const override;
     bool requiresTarget() const { return needsTarget; }
-
 };
 
 // --------- Enchantment ---------
@@ -128,11 +133,11 @@ private:
 class Ritual : public Card {
     int charges;
     int activationCost;
-    std::function<void()> ritualEffect;
+    
 
 public:
-    Ritual(const std::string& name, int cost, int charges, int activationCost,
-           std::function<void()> effect);
+    Ritual(const std::string& name, int cost, int charges, int activationCost
+           );
 
     void execute(const State& state, Player* player, Player* other) override;
     void consumeCharges() override;
@@ -142,10 +147,8 @@ public:
     int getChargeCost() const;
     std::string getDescription() const;
 
-
     std::string getType() const override;
     card_template_t render() const override;
 };
 
 #endif
-

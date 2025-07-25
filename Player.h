@@ -18,11 +18,12 @@ class Player {
     std::vector<std::unique_ptr<Card>> deck;
     std::vector<std::unique_ptr<Card>> hand;
     std::vector<std::unique_ptr<Card>> board;
+    std::vector<std::unique_ptr<Card>> graveyard;
     Player* opponent = nullptr;
     std::default_random_engine rng;
 
     std::unique_ptr<Card> ritual;
-std::vector<std::unique_ptr<Card>> graveyard;
+    
 
 public:
     Player(const std::string& name);
@@ -36,14 +37,14 @@ public:
 
 
     // In Player.h (public section)
-int getId() const;
-const std::string& getName() const;
-int getHealth() const;
-int getMagic() const;
+    int getId() const;
+    const std::string& getName() const;
+    int getHealth() const;
+    int getMagic() const;
 
-Card* getRitual() const;
-Card* topGraveyard() const;
-Minion* getMinion(int index) const; // 0-based index
+    Card* getRitual() const;
+    Card* topGraveyard() const;
+    Minion* getMinion(int index) const; // 0-based index
 
 
     void loadDeckFromFile(const std::string& filename);
@@ -61,8 +62,13 @@ Minion* getMinion(int index) const; // 0-based index
     void use(State state);
     void notify(State state);
 
+    // triggers
     void startOfTurn();
     void endOfTurn();
+    void allyEnter();
+    void allyDie();
+    void anyDie();
+    void anyEnter();
 
     void setHealth(int h);
     //int getHealth() const;

@@ -20,6 +20,8 @@ Minion::Minion(const std::string& name, int cost, int attack, int defence)
 
 void Minion::attackPlayer(Player* target) {
     if (!target) return;
+    if (actions <= 0) return;
+    actions--;
     target->setHealth(target->getHealth() - attack);
 }
 
@@ -35,6 +37,8 @@ int Minion::getAttack() const {
 
 void Minion::attackMinion(Minion* target) {
     if (!target) return;
+    if (actions <= 0) return;
+    actions--;
     target->defence -= attack;
     this->defence -= target->attack;
 }
@@ -187,15 +191,11 @@ std::string Enchantment::generateModString(int value, ModType type) const {
 }
 
 // --------- Ritual ---------
-Ritual::Ritual(const std::string& name, int cost, int charges, int activationCost,
-               std::function<void()> effect)
-    : Card(name, cost), charges(charges), activationCost(activationCost), ritualEffect(effect) {}
+Ritual::Ritual(const std::string& name, int cost, int charges, int activationCost
+               )
+    : Card(name, cost), charges(charges), activationCost(activationCost) {}
 
 void Ritual::execute(const State& state, Player* player, Player* other) {
-    if (canActivate()) {
-        if (ritualEffect) ritualEffect();  // Optional base effect
-        charges -= activationCost;
-    }
 }
 
 bool Ritual::canActivate() const {

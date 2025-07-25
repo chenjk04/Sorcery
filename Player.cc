@@ -134,23 +134,8 @@ magic_ -= card->getCost();
     }
     else if (type == "Minion") {
         board.emplace_back(std::move(card));
-
-        // Trigger opponent ritual: a minion has entered play
-        State triggerState;
-        triggerState.action = Action::play;
-        triggerState.source = Source::H1; // or any valid
-        triggerState.target = (this == opponent->getOpponent()) ? Target::P1BALL : Target::P2BALL;
-        
-        // Notify ritual of a minion entering play
-if (ritual) {
-    State triggerState{Action::play, Source::H1, Target::NONE}; // customize if needed
-    ritual->execute(triggerState, this, opponent);
-}
-
-if (opponent) {
-            opponent->activateTrigger(triggerState);
-        }
-
+        allyEnter();
+        opponent->anyEnter();
     }
     else if (type == "Spell") {
         Spell* s = dynamic_cast<Spell*>(card.get());
@@ -215,6 +200,7 @@ void Player::attack(const State& state) {
     int attackerIndex = static_cast<int>(state.source) - static_cast<int>(Source::B1);
     Minion* attacker = getMinion(attackerIndex);
     if (!attacker) return;
+    
 
     if (state.target == Target::player1 || state.target == Target::player2) {
         opponent->setHealth(opponent->getHealth() - attacker->getDefence());
@@ -234,18 +220,16 @@ void Player::attack(const State& state) {
 
         attacker->attackMinion(targetMinion);
 
-        if (attacker->getDefence() <= 0) moveMinionToGraveyard(attackerIndex);
-        if (targetMinion->getDefence() <= 0) defender->moveMinionToGraveyard(targetIndex);
+        if (attacker->getDefence() <= 0) {moveMinionToGraveyard(attackerIndex); allyDie(); anyDie(); opponent->anyDie();}
+        if (targetMinion->getDefence() <= 0) {defender->moveMinionToGraveyard(targetIndex); anyDie(); opponent->anyDie(); opponent->allyDie();}
     }
 }
 
 
 void Player::use(State state) {
-    if (board.size() <= 5) return;
-    Ritual* ritual = dynamic_cast<Ritual*>(board.at(5).get());
-    if (ritual && ritual->canActivate()) {
-        ritual->execute(state, this, opponent);
-    }
+    int attackerIndex = static_cast<int>(state.source) - static_cast<int>(Source::B1);
+    Minion* attacker = getMinion(attackerIndex);
+    attacker->useAbility(opponent);
 }
 
 void Player::notify(State state) {
@@ -261,35 +245,90 @@ void Player::notify(State state) {
 void Player::startOfTurn() {
     magic_ = 3;
     drawCard();
-    if (ritual && ritual->getName() == "Dark Ritual") {
+    if (ritual) {
     if (ritual->canActivate()) {
-        magic_ += 1;
-        ritual->consumeCharges();
+        if (ritual->startOfTurnTrigger != nullptr) {
+            ritual->startOfTurnTrigger(this, opponent);
+            ritual->consumeCharges();
+        }
     }
 }
-
-    for (const auto& card : board) {
-        card->startOfTurnTrigger();
+    for (auto& card : board) {
+        card->startOfTurnTrigger(this, opponent);
     }
 }
 
 void Player::endOfTurn() {
-    for (const auto& card : board) {
-    Minion* m = dynamic_cast<Minion*>(card.get());
-    if (m && m->getName() == "Potion Seller") {
-        for (auto& ally : board) {
-            Minion* allyMinion = dynamic_cast<Minion*>(ally.get());
-            if (allyMinion) {
-                allyMinion->modifyStats(0, 1);  // +0/+1
-            }
+    if (ritual) {
+    if (ritual->canActivate()) {
+        if (ritual->endOfTurnTrigger != nullptr) {
+            ritual->endOfTurnTrigger(this, opponent);
+            ritual->consumeCharges();
         }
     }
 }
-
-    for (const auto& card : board) {
-        card->endOfTurnTrigger();
+    for (auto& card : board) {
+        card->endOfTurnTrigger(this, opponent);
     }
 }
+
+void Player::allyEnter() {
+    if (ritual) {
+    if (ritual->canActivate()) {
+        if (ritual->myMinionEnter != nullptr) {
+            ritual->myMinionEnter(this, opponent);
+            ritual->consumeCharges();
+        }
+    }
+}
+    for (auto& card : board) {
+        card->myMinionEnter(this, opponent);
+    }
+}
+void Player::allyDie() {
+    if (ritual) {
+    if (ritual->canActivate()) {
+        if (ritual->myMinionDie != nullptr) {
+            ritual->myMinionDie(this, opponent);
+            ritual->consumeCharges();
+        }
+    }
+}
+    for (auto& card : board) {
+        card->myMinionDie(this, opponent);
+    }
+}
+
+void Player::anyEnter() {
+    if (ritual) {
+    if (ritual->canActivate()) {
+        if (ritual->anyMinionEnter != nullptr) {
+            ritual->anyMinionEnter(this, opponent);
+            ritual->consumeCharges();
+        }
+    }
+}
+    for (auto& card : board) {
+        card->anyMinionEnter(this, opponent);
+    }
+}
+
+void Player::anyDie() {
+    if (ritual) {
+    if (ritual->canActivate()) {
+        if (ritual->anyMinionDie != nullptr) {
+            ritual->anyMinionDie(this, opponent);
+            ritual->consumeCharges();
+        }
+    }
+}
+    for (auto& card : board) {
+        card->anyMinionDie(this, opponent);
+    }
+}
+
+
+
 
 void Player::setHealth(int h) { health_ = h; }
 int Player::getHealth() const { return health_; }
