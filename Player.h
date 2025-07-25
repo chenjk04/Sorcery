@@ -9,7 +9,7 @@
 #include "Observer.h"
 #include "State.h"
 #include "Component.h"
-
+class Card;
 class Player : public Subject, public Observer {
 public:
     Player(const std::string& name, const std::string& deckFile);
@@ -38,7 +38,7 @@ public:
 
 private:
     std::string name_;
-    std::unique_ptr<Component> deck_, hand_, board_, graveyard_;
+    std::unique_ptr<std::vector<std::unique_ptr<Card>>> deck_, hand_, board_, graveyard_;
     int health_{20}, magic_{3};
 };
 
