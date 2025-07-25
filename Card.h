@@ -7,7 +7,6 @@
 #include <vector>
 #include "State.h"
 #include "Player.h"
-#include "CardInfo.h"
 
 
 class Card {
@@ -37,10 +36,10 @@ public:
     virtual void execute(const State& state, Player* owner, Player* other) {}
     
     
-    std::function<void(Player*)> startOfTurnTrigger = nullptr;
-    std::function<void(Player*)> endOfTurnTrigger = nullptr;
-    std::function<void(Player*)> minionEntersTrigger = nullptr;
-    std::function<void(Player*)> minionLeavesTrigger = nullptr;
+    std::function<void()> startOfTurnTrigger = nullptr;
+    std::function<void()> endOfTurnTrigger = nullptr;
+    std::function<void()> minionEntersTrigger = nullptr;
+    std::function<void()> minionLeavesTrigger = nullptr;
     
     // For your Component system
     virtual bool requiresTarget() const { return false; }
@@ -116,7 +115,6 @@ public:
           std::function<void(const State&, Player*, Player*)> effect, 
           bool needsTarget = false);
     
-    
     std::string getType() const override { return "Spell"; }
     
     void execute(const State& state, Player* owner, Player* other) override;
@@ -191,17 +189,17 @@ class Ritual : public Card {
 private:
     int charges;
     int activationCost;
-    std::function<void(Player*)> ritualEffect;
+    std::function<void()> ritualEffect;
     
 public:
     Ritual(const std::string& name, int cost, int charges, int activationCost,
-           std::function<void(Player*)> effect);
+           std::function<void()> effect);
     
     std::string getType() const override { return "Ritual"; }
     
     void execute(const State& state, Player* owner, Player* other) override;
     bool canActivate() const { return charges >= activationCost; }
-    void activate(Player* player);
+    void activate();
     void addCharges(int amount) { charges += amount; }
     
     int getCharges() const { return charges; }

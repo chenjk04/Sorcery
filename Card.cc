@@ -236,7 +236,7 @@ std::string Enchantment::generateModString(int value, ModType type) const {
 // ==================== Ritual Class ====================
 
 Ritual::Ritual(const std::string& name, int cost, int charges, int activationCost,
-               std::function<void(Player*)> effect)
+               std::function<void()> effect)
     : Card(name, cost), charges(charges), activationCost(activationCost), 
       ritualEffect(effect) {}
 
@@ -245,7 +245,7 @@ void Ritual::execute(const State& state, Player* player, Player* other) {
     
     charges -= activationCost;
     if (ritualEffect) {
-        ritualEffect(player);
+        ritualEffect();
     }
 
 }
