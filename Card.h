@@ -34,12 +34,12 @@ public:
     virtual void execute(const State& state, Player* owner, Player* other) {}
 
     // Trigger function pointers
-    std::function<void(Player* owner, Player* opponent)> startOfTurnTrigger;
-    std::function<void(Player* owner, Player* opponent)> endOfTurnTrigger;
-    std::function<void(Player* owner, Player* opponent)> anyMinionEnter;
-    std::function<void(Player* owner, Player* opponent)> myMinionEnter;
-    std::function<void(Player* owner, Player* opponent)> anyMinionDie;
-    std::function<void(Player* owner, Player* opponent)> myMinionDie;
+    std::function<void(Player* owner, Player* opponent)> startOfTurnTrigger = [](Player*, Player*){};
+    std::function<void(Player* owner, Player* opponent)> endOfTurnTrigger= [](Player*, Player*){};
+    std::function<void(Player* owner, Player* opponent)> anyMinionEnter= [](Player*, Player*){};
+    std::function<void(Player* owner, Player* opponent)> myMinionEnter= [](Player*, Player*){};
+    std::function<void(Player* owner, Player* opponent)> anyMinionDie= [](Player*, Player*){};
+    std::function<void(Player* owner, Player* opponent)> myMinionDie= [](Player*, Player*){};
 };
 
 // --------- Minion ---------
