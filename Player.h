@@ -1,70 +1,69 @@
+// ===== Player.h =====
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include <memory>
 #include <string>
 #include <vector>
-
-#include "Subject.h"
-#include "Observer.h"
+#include <memory>
+#include <random>
+#include <chrono>
+#include "Card.h"
 #include "State.h"
-#include "Deck.h"
-#include "Hand.h"
 
-class Card;
-class Player : public Subject, public Observer {
+class Player {
+    std::string name_;
+    int health_ = 20;
+    int magic_ = 3;
+
+    std::vector<std::unique_ptr<Card>> deck;
+    std::vector<std::unique_ptr<Card>> hand;
+    std::vector<std::unique_ptr<Card>> board;
+    Player* opponent = nullptr;
+    std::default_random_engine rng;
+
+    std::unique_ptr<Card> ritual;
+std::vector<std::unique_ptr<Card>> graveyard;
+
 public:
-    //Player(const std::string& name, const std::string& deckFile);
     Player(const std::string& name);
-    ~Player() = default;
+    ~Player();
 
-    // ADDED
-    std::vector<std::unique_ptr<Minion>>      board;
-    std::unique_ptr<Ritual>                   ritual;
-    std::vector<std::unique_ptr<Enchantment>> enchantments;
-    std::vector<std::unique_ptr<Card>>        graveyard;
+    void setOpponent(Player* p);
 
-    Ritual*                                    getRitual()        const { return ritual.get(); }
-    const std::vector<std::unique_ptr<Minion>>& getBoard()        const { return board;   }
-    const std::vector<std::unique_ptr<Enchantment>>& getEnchantments() const { return enchantments; }
-    const std::vector<std::unique_ptr<Card>>&   getGraveyard()    const { return graveyard; }
+    // In Player.h (public section)
+int getId() const;
+const std::string& getName() const;
+int getHealth() const;
+int getMagic() const;
 
-    void constructDeck(const std::string& deckFile);
+Card* getRitual() const;
+Card* topGraveyard() const;
+Minion* getMinion(int index) const; // 0-based index
+
+
+    void loadDeckFromFile(const std::string& filename);
     void shuffleDeck();
     void drawCard();
-    void printHand() const;
-    static void printBoard(const Player& p1, const Player& p2);
+
     
 
-    // Core actions
-    void draw();
-    void play(State state);
-    void use(State state);
+
+    void printHand() const;
+    //void printBoard(const Player& p1, const Player& p2);
+
+    void playCard(int handIndex, const State& state);
     void attack(State state);
+    void use(State state);
+    void notify(State state);
+
     void startOfTurn();
     void endOfTurn();
 
-    // Showers for debugging
-    void showHand() const;
-    void showBoard() const;
-
-    // Observer
-    void notifyObserver(State state);
-    void notify(State state) override;
-
-    // Accessors
-    const std::string& getName() const;
-    int getHealth() const;
-    int getMagic() const;
-    void setHealth(int );
-
-private:
-    std::string name_;
-    std::unique_ptr<std::vector<std::unique_ptr<Card>>> deck_, hand_, board_, graveyard_;
-    int health_{20}, magic_{3};
-    Deck deck;
-    Hand hand;
-    Player* opponent;
+    void setHealth(int h);
+    //int getHealth() const;
+    //int getMagic() const;
+    //const std::string& getName() const;
 };
 
-#endif 
+
+#endif

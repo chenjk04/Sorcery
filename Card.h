@@ -8,6 +8,7 @@
 #include "State.h"
 #include "Player.h"
 #include "CardInfo.h"
+#include "ascii_graphics.h"
 
 
 class Card {
@@ -24,10 +25,14 @@ public:
     
     // Pure virtual methods
     virtual std::string getType() const = 0;
+    const std::string& getName() const;
     //virtual std::unique_ptr<Card> clone() const = 0;
+
+    virtual std::string getType() const = 0;
+    virtual card_template_t render() const = 0;
     
     // Common getters
-    std::string getName() const { return name; }
+    //std::string getName() const { return name; }
     std::string getDescription() const {return description;}
     int getCost() const { return cost; }
     Player* getOwner() const { return owner; }
@@ -103,6 +108,9 @@ public:
     void displayCard() const override;
     
     //std::unique_ptr<Card> clone() const override;
+
+    std::string getType() const override;
+    card_template_t render() const override;
 };
 
 // Spell class
@@ -124,6 +132,9 @@ public:
     void displayCard() const override;
     
     //std::unique_ptr<Card> clone() const override;
+
+    std::string getType() const override;
+    card_template_t render() const override;
 };
 
 // Enchantment class
@@ -179,6 +190,9 @@ public:
     
     //std::unique_ptr<Card> clone() const override;
 
+    std::string getType() const override;
+    card_template_t render() const override;
+
 private:
     
     // Helper method to generate mod string from value and type
@@ -209,6 +223,9 @@ public:
     void displayCard() const override;
     
     //std::unique_ptr<Card> clone() const override;
+
+    std::string getType() const override;
+    card_template_t render() const override;
 };
 
 #endif

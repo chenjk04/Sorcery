@@ -12,6 +12,11 @@
 Card::Card(const std::string& name, int cost) 
     : name(name), cost(cost), owner(nullptr), description("") {}
 
+// ADDED
+const std::string& Card::getName() const {
+    return name;
+}
+
 
 
 // ==================== Minion Class ====================
@@ -93,6 +98,22 @@ void Minion::removeAllEnchantments() {
     enchantments.clear();
 }
 
+// ADDED
+std::string Minion::getType() const {
+    return "Minion";
+}
+
+card_template_t Minion::render() const {
+    const auto& info = CardInfo::get(name);
+    if (info.actCost > 0) {
+        return display_minion_activated_ability(info.name, info.cost, info.atk, info.hp, info.actCost, info.desc);
+    } else if (!info.desc.empty()) {
+        return display_minion_triggered_ability(info.name, info.cost, info.atk, info.hp, info.desc);
+    } else {
+        return display_minion_no_ability(info.name, info.cost, info.atk, info.hp);
+    }
+}
+
 
 
 void Minion::displayCard() const {
@@ -120,6 +141,16 @@ void Spell::execute(const State& state, Player* owner, Player* other){
 
 void Spell::displayCard() const {
     // Display implementation will be handled elsewhere
+}
+
+// ADDED
+std::string Spell::getType() const {
+    return "Spell";
+}
+
+card_template_t Spell::render() const {
+    const auto& info = CardInfo::get(name);
+    return display_spell(info.name, info.cost, info.desc);
 }
 
 // ==================== Enchantment Class ====================
@@ -156,6 +187,7 @@ bool Enchantment::isValidTarget(Target target) const {
     }
 }
 
+/* 
 void Enchantment::execute(const State& state, Player* owner, Player* other) {
     // Determine which minion to target based on state.target
     Minion* targetMinion = nullptr;
@@ -215,6 +247,7 @@ void Enchantment::execute(const State& state, Player* owner, Player* other) {
         targetMinion->addEnchantment(std::move(enchantmentCopy));
     }
 }
+*/
 
 void Enchantment::displayCard() const {
     // Display implementation will be handled elsewhere
@@ -233,6 +266,23 @@ std::string Enchantment::generateModString(int value, ModType type) const {
     }
 }
 
+// ADDED
+std::string Enchantment::getType() const {
+    return "Enchantment";
+}
+
+card_template_t Enchantment::render() const {
+    const auto& info = CardInfo::get(name);
+    if (info.atk != 0 || info.hp != 0) {
+        std::string a = (info.atk > 0 ? "+" : "") + std::to_string(info.atk);
+        std::string h = (info.hp > 0 ? "+" : "") + std::to_string(info.hp);
+        return display_enchantment_attack_defence(info.name, info.cost, info.desc, a, h);
+    } else {
+        return display_enchantment(info.name, info.cost, info.desc);
+    }
+}
+
+
 // ==================== Ritual Class ====================
 
 Ritual::Ritual(const std::string& name, int cost, int charges, int activationCost,
@@ -250,8 +300,18 @@ void Ritual::execute(const State& state, Player* player, Player* other) {
 
 }
 
+// ADDED
+std::string Ritual::getType() const {
+    return "Ritual";
+}
 
-    
+card_template_t Ritual::render() const {
+    const auto& info = CardInfo::get(name);
+    return display_ritual(info.name, info.cost, info.actCost, info.desc, info.charges);
+}
+
+
+
 
 void Ritual::displayCard() const {
     // Display implementation will be handled elsewhere

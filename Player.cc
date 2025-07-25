@@ -1,137 +1,99 @@
-// ===== Player.cpp =====
-#include <iostream>
-#include <algorithm>
 #include "Player.h"
 #include "CardInfo.h"
 #include "ascii_graphics.h"
+#include <iostream>
+#include <fstream>
+#include <algorithm>
 
 Player::Player(const std::string& name)
-    : name_(name)
-{}
+    : name_(name), rng(static_cast<unsigned>(std::chrono::system_clock::now().time_since_epoch().count())) {}
 
 Player::~Player() {}
 
-void Player::constructDeck(const std::string& deckFile) {
-    deck.loadFromFile(deckFile);
+void Player::setOpponent(Player* p) {
+    opponent = p;
+}
+
+void Player::loadDeckFromFile(const std::string& filename) {
+    std::ifstream in(filename);
+    std::string cardName;
+    while (std::getline(in, cardName)) {
+        if (cardName.empty()) continue;
+        const auto& info = CardInfo::get(cardName);
+        if (info.type == "Minion") {
+            deck.emplace_back(std::make_unique<Minion>(cardName, info.cost, info.atk, info.hp));
+        } else if (info.type == "Spell") {
+            deck.emplace_back(std::make_unique<Spell>(cardName, info.cost, [](const State&, Player*, Player*){}, false));
+        } else if (info.type == "Enchantment") {
+            deck.emplace_back(std::make_unique<Enchantment>(cardName, info.cost, info.atk,
+                Enchantment::ModType::ADD, info.hp, Enchantment::ModType::ADD,
+                "", "", false, nullptr));
+        } else if (info.type == "Ritual") {
+            deck.emplace_back(std::make_unique<Ritual>(cardName, info.cost, info.charges, info.actCost, []{}));
+        }
+    }
+    std::reverse(deck.begin(), deck.end());
 }
 
 void Player::shuffleDeck() {
-    deck.shuffle();
+    std::shuffle(deck.begin(), deck.end(), rng);
 }
 
 void Player::drawCard() {
-    Card* c = deck.draw();
-    if (c) {
-        if (!hand.add(c)) delete c;
+    if (!deck.empty() && hand.size() < 5) {
+        hand.push_back(std::move(deck.back()));
+        deck.pop_back();
     }
 }
 
 void Player::printHand() const {
-    const auto& cards = hand.getCards();
-    int sz = cards.size();
-    if (sz == 0) {
-        std::cout << "<empty hand>\n";
-        return;
-    }
-
-    std::vector<std::vector<std::string>> arts;
-    for (auto* c : cards) {
+    std::vector<card_template_t> templates;
+    for (const auto& c : hand) {
         const auto& info = CardInfo::get(c->getName());
         if (info.type == "Minion") {
             if (info.actCost > 0) {
-                arts.push_back(display_minion_activated_ability(
-                    info.name, info.cost,
-                    info.atk, info.hp,
-                    info.actCost, info.desc
-                ));
+                templates.push_back(display_minion_activated_ability(info.name, info.cost, info.atk, info.hp, info.actCost, info.desc));
             } else if (!info.desc.empty()) {
-                arts.push_back(display_minion_triggered_ability(
-                    info.name, info.cost,
-                    info.atk, info.hp,
-                    info.desc
-                ));
+                templates.push_back(display_minion_triggered_ability(info.name, info.cost, info.atk, info.hp, info.desc));
             } else {
-                arts.push_back(display_minion_no_ability(
-                    info.name, info.cost,
-                    info.atk, info.hp
-                ));
+                templates.push_back(display_minion_no_ability(info.name, info.cost, info.atk, info.hp));
             }
-        }
-        else if (info.type == "Spell") {
-            arts.push_back(display_spell(
-                info.name, info.cost,
-                info.desc
-            ));
-        }
-        else if (info.type == "Ritual") {
-            arts.push_back(display_ritual(
-                info.name, info.cost,
-                info.actCost, info.desc,
-                info.charges
-            ));
-        }
-        else { // Enchantment
+        } else if (info.type == "Spell") {
+            templates.push_back(display_spell(info.name, info.cost, info.desc));
+        } else if (info.type == "Ritual") {
+            templates.push_back(display_ritual(info.name, info.cost, info.actCost, info.desc, info.charges));
+        } else {
             if (info.atk != 0 || info.hp != 0) {
-                std::string a = (info.atk>0?"+":"") + std::to_string(info.atk);
-                std::string h = (info.hp>0?"+":"") + std::to_string(info.hp);
-                arts.push_back(display_enchantment_attack_defence(
-                    info.name, info.cost,
-                    info.desc,
-                    a, h
-                ));
+                std::string a = (info.atk > 0 ? "+" : "") + std::to_string(info.atk);
+                std::string h = (info.hp > 0 ? "+" : "") + std::to_string(info.hp);
+                templates.push_back(display_enchantment_attack_defence(info.name, info.cost, info.desc, a, h));
             } else {
-                arts.push_back(display_enchantment(
-                    info.name, info.cost,
-                    info.desc
-                ));
+                templates.push_back(display_enchantment(info.name, info.cost, info.desc));
             }
         }
     }
-    int rows = arts[0].size();
-    for (int r = 0; r < rows; ++r) {
-        for (int i = 0; i < sz; ++i) std::cout << arts[i][r];
-        std::cout << "\n";
+    for (size_t row = 0; row < templates[0].size(); ++row) {
+        for (const auto& card : templates) {
+            std::cout << card[row];
+        }
+        std::cout << '\n';
     }
 }
 
-void Player::printBoard(const Player& p1, const Player& p2) {
-    std::cout << "\n-- Board State --\n";
-    
-}
+void Player::playCard(int handIndex, const State& state) {
+    if (handIndex < 0 || handIndex >= static_cast<int>(hand.size())) return;
+    auto card = std::move(hand[handIndex]);
+    hand.erase(hand.begin() + handIndex);
 
-
-template <typename T>
-T pop_front(std::vector<T>& vec) {
-    if (!vec.empty()) {
-        T item = vec.begin();
-        vec.erase(vec.begin());
-        return item;
+    if (card->getType() == "Ritual") {
+        ritual = std::move(card);  // <- Only store it, do not execute
+    } else if (card->getType() == "Minion") {
+        board.push_back(std::move(card));
+    } else {
+        card->execute(state, this, opponent);
     }
-    
-}
-template <typename T>
-T pop_at(std::vector<T>& vec, int i) {
-    if (i >= vec.size()) {
-        throw std::out_of_range("Index out of bounds");
-    }
-    T item = vec[i];            // step 1: copy
-    vec.erase(vec.begin() + i); // step 2: erase
-    return item;                // step 3: return
 }
 
-void Player::draw() {
-    auto card = pop_front(*board_);
-    if (card) hand_->emplace_back(card);
-}
-
-void Player::play(State state) {
-    int handIndex = hand_to_index(state);
-    auto card = pop_at(*hand_,handIndex);
-    if (!card) return;
-    if (card->getType() == "Minion") {board_->emplace_back(card); return;}
-    card->execute(state, this, opponent);
-    return;
-}
 
 int source_to_index(State s) {
     switch (s.source) {
@@ -141,7 +103,7 @@ int source_to_index(State s) {
         case Source::B4: return 3;
         case Source::B5: return 4;
         default:
-            throw std::invalid_argument("Source must be B1 to B5");
+            throw std::invalid_argument("Invalid source for board index");
     }
 }
 
@@ -153,7 +115,7 @@ int hand_to_index(State s) {
         case Source::H4: return 3;
         case Source::H5: return 4;
         default:
-            throw std::invalid_argument("Source must be B1 to B5");
+            throw std::invalid_argument("Invalid source for hand index");
     }
 }
 
@@ -165,62 +127,74 @@ int oppo_to_index(State s) {
         case Target::P2B4: return 3;
         case Target::P2B5: return 4;
         default:
-            throw std::invalid_argument("Source must be B1 to B5");
+            throw std::invalid_argument("Invalid target for opponent board index");
     }
 }
 
 
-void Player::setHealth(int h) {
-    health_ = h;
-}
-
 void Player::attack(State state) {
     int index = source_to_index(state);
-    Minion* card = dynamic_cast<Minion*>(board_->at(index).get());
-    if (state.target == Target::player2) {card->attackPlayer(opponent); return;}
-    int oppoindex = oppo_to_index(state);
-    Minion* oppocard = dynamic_cast<Minion*>(opponent->board_->at(oppoindex).get());
-    card->attackMinion(oppocard);
+    Minion* attacker = dynamic_cast<Minion*>(board.at(index).get());
+    if (state.target == Target::player2) {
+        attacker->attackPlayer(opponent);
+    } else {
+        int oppoindex = oppo_to_index(state);
+        Minion* defender = dynamic_cast<Minion*>(opponent->board.at(oppoindex).get());
+        attacker->attackMinion(defender);
+    }
 }
 
-void Player::startOfTurn() {
-    magic_ = 3;
-    draw();
-    for (const auto& cardPtr : *board_) {
-    Card* card = cardPtr.get();
-    card->startOfTurnTrigger();}
-}
-
-void Player::endOfTurn() {
-    for (const auto& cardPtr : *board_) {
-    Card* card = cardPtr.get();
-    card->endOfTurnTrigger();}
-}
-
-void Player::showHand() const {
-    hand_->show();
-}
-
-void Player::showBoard() const {
-    board_->show();
-}
-
-// void Player::notifyObserver(State state) {
-//     Subject::notify(state);
-// }
 void Player::use(State state) {
-    Ritual* card = dynamic_cast<Ritual*>(board_->at(5).get());
-    if (card->canActivate()) {
-        card->execute(state, this, opponent);
+    if (board.size() <= 5) return;
+    Ritual* ritual = dynamic_cast<Ritual*>(board.at(5).get());
+    if (ritual && ritual->canActivate()) {
+        ritual->execute(state, this, opponent);
     }
 }
 
 void Player::notify(State state) {
-    if (state.action == Action::attack) {attack(state);}
-    else if (state.action == Action::play) {play(state);}
-    else {use(state);}
+    if (state.action == Action::attack) {
+        attack(state);
+    } else if (state.action == Action::play) {
+        playCard(hand_to_index(state), state);
+    } else {
+        use(state);
+    }
 }
 
-const std::string& Player::getName() const { return name_; }
+void Player::startOfTurn() {
+    magic_ = 3;
+    drawCard();
+    for (const auto& card : board) {
+        card->startOfTurnTrigger();
+    }
+}
+
+void Player::endOfTurn() {
+    for (const auto& card : board) {
+        card->endOfTurnTrigger();
+    }
+}
+
+void Player::setHealth(int h) { health_ = h; }
 int Player::getHealth() const { return health_; }
-int Player::getMagic()  const { return magic_; }
+int Player::getMagic() const { return magic_; }
+const std::string& Player::getName() const { return name_; }
+
+
+
+
+
+Card* Player::getRitual() const {
+    return ritual ? ritual.get() : nullptr;
+}
+
+Card* Player::topGraveyard() const {
+    return graveyard.empty() ? nullptr : graveyard.back().get();
+}
+
+Minion* Player::getMinion(int index) const {
+    if (index < 0 || index >= static_cast<int>(board.size())) return nullptr;
+    return dynamic_cast<Minion*>(board[index].get());
+}
+
