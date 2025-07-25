@@ -41,4 +41,4 @@ private:
     int health_{20}, magic_{3};
 };
 
-#endif // PLAYER_H
+#endif 
