@@ -1,4 +1,4 @@
-/ ===== main.cc =====
+
 #include <iostream>
 #include <sstream>
 #include <string>
