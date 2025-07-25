@@ -7,6 +7,7 @@
 #include <vector>
 #include "State.h"
 #include "Player.h"
+#include "CardInfo.h"
 
 
 class Card {
