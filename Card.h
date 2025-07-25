@@ -6,13 +6,16 @@
 #include <string>
 #include <vector>
 #include "State.h"
+#include "Player.h"
 class Component;
-class Player; // forward declaration
+ // forward declaration
 class Card {
 protected:
     std::string name;
     int cost;
     Player* owner;
+    Player* other;
+    std::string description;
 
 public:
     Card(const std::string& name, int cost);
@@ -20,18 +23,17 @@ public:
     
     // Pure virtual methods
     virtual std::string getType() const = 0;
-    virtual std::unique_ptr<Card> clone() const = 0;
-    virtual std::string getDescription() const = 0;
+    //virtual std::unique_ptr<Card> clone() const = 0;
     
     // Common getters
     std::string getName() const { return name; }
+    std::string getDescription() const {return description;}
     int getCost() const { return cost; }
     Player* getOwner() const { return owner; }
     void setOwner(Player* newOwner) { owner = newOwner; }
     
     // Action handling - works with your State system
-    virtual bool canExecute(const State& state, Player* player) const;
-    virtual void execute(const State& state, Player* player) {}
+    virtual void execute(const State& state, Player* owner, Player* other) {}
     
     
     std::function<void(Player*)> startOfTurnTrigger = nullptr;
@@ -55,7 +57,7 @@ private:
     int attack;         // Current stats (after enchantments)
     int defence;
     int actions;
-    int maxActions;
+    
     
     // Track enchantments for inspection and removal
     std::vector<std::unique_ptr<Enchantment>> enchantments;
@@ -70,7 +72,7 @@ public:
     void attackMinion(Minion* target);
     bool canAttack() const { return actions > 0; }
     void useAction() { if (actions > 0) actions--; }
-    void resetActions() { actions = maxActions; }
+    void resetActions() { actions = 1; } // start of turn 
     
     // Stats
     int getAttack() const { return attack; }
@@ -89,38 +91,38 @@ public:
     // For inspect command
     void displayWithEnchantments() const;
     
-    // Activated ability - function pointer approach
+    // Activated ability - function pointer approach  
     std::function<void(const State&, Player*)> activatedAbility = nullptr;
-    int abilityCost = 0;
+    
     
     // Works with your State system
-    void execute(const State& state, Player* player) override;
-    bool canExecute(const State& state, Player* player) const override;
+    void execute(const State& state, Player* owner, Player* other) override;
+    
     
     void displayCard() const override;
-    std::string getDescription() const override;
-    std::unique_ptr<Card> clone() const override;
+    
+    //std::unique_ptr<Card> clone() const override;
 };
 
 // Spell class
 class Spell : public Card {
 private:
-    std::function<void(const State&, Player*)> spellEffect;
+    std::function<void(const State&, Player*, Player*)> spellEffect;
     bool needsTarget;
     
 public:
     Spell(const std::string& name, int cost, 
-          std::function<void(const State&, Player*)> effect, 
+          std::function<void(const State&, Player*, Player*)> effect, 
           bool needsTarget = false);
     
     std::string getType() const override { return "Spell"; }
     
-    void execute(const State& state, Player* player) override;
+    void execute(const State& state, Player* owner, Player* other) override;
     bool requiresTarget() const override { return needsTarget; }
     
     void displayCard() const override;
-    std::string getDescription() const override;
-    std::unique_ptr<Card> clone() const override;
+    
+    //std::unique_ptr<Card> clone() const override;
 };
 
 // Enchantment class
@@ -148,17 +150,16 @@ public:
     Enchantment(const std::string& name, int cost, 
                 int attackModValue = 0, ModType attackModType = ModType::ADD,
                 int defenceModValue = 0, ModType defenceModType = ModType::ADD,
-                const std::string& attackModStr = "", const std::string& defenceModStr = "");
+                const std::string& attackModStr = "", const std::string& defenceModStr = "",
+                bool grantsAbility = false, std::function<void(const State&, Player*)> grantedAbility = nullptr);
     
-    // Alternative constructor that parses mod strings
-    Enchantment(const std::string& name, int cost, 
-                const std::string& attackModStr = "", const std::string& defenceModStr = "");
+    
     
     std::string getType() const override { return "Enchantment"; }
     bool requiresTarget() const override { return true; }
     bool isValidTarget(Target target) const override;
     
-    void execute(const State& state, Player* player) override;
+    void execute(const State& state, Player* owner, Player* other) override;
     
     
     int getAttackModValue() const { return attackModValue; }
@@ -174,8 +175,8 @@ public:
     
     
     void displayCard() const override;
-    std::string getDescription() const override;
-    std::unique_ptr<Card> clone() const override;
+    
+    //std::unique_ptr<Card> clone() const override;
 
 private:
     
@@ -196,7 +197,7 @@ public:
     
     std::string getType() const override { return "Ritual"; }
     
-    void execute(const State& state, Player* player) override;
+    void execute(const State& state, Player* owner, Player* other) override;
     bool canActivate() const { return charges >= activationCost; }
     void activate(Player* player);
     void addCharges(int amount) { charges += amount; }
@@ -205,8 +206,8 @@ public:
     int getActivationCost() const { return activationCost; }
     
     void displayCard() const override;
-    std::string getDescription() const override;
-    std::unique_ptr<Card> clone() const override;
+    
+    //std::unique_ptr<Card> clone() const override;
 };
 
 #endif
