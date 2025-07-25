@@ -7,8 +7,9 @@
 #include <vector>
 #include "State.h"
 #include "Player.h"
-class Component;
- // forward declaration
+#include "CardInfo.h"
+
+
 class Card {
 protected:
     std::string name;
@@ -114,6 +115,7 @@ public:
     Spell(const std::string& name, int cost, 
           std::function<void(const State&, Player*, Player*)> effect, 
           bool needsTarget = false);
+    
     
     std::string getType() const override { return "Spell"; }
     
